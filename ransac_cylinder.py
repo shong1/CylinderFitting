@@ -28,6 +28,7 @@ model_thres - The threshold of the determined fitting function for all data
 	while iteration < max_iter:
 		hypo_pts_idx = random_integers( 0, ptsDim[0], nHypoData )
 		hypo_pts = data[ hypo_pts_idx ]
+		rSqr, C, W, minFitErr = model.fit( hypo_pts )
 		
 
 class CylinderModel:
@@ -37,6 +38,7 @@ needed by the ransac() function.
 """
 	def __init__(self, debug=False):
 		self.debug = debug
+		
 	def fit(self, data):
 		dataDim = data.shape
 		meanData = np.mean( data, axis = 0 )
@@ -53,11 +55,18 @@ needed by the ransac() function.
 				cTheta = np.cos( theta )
 				sTheta = np.sin( theta )
 				tW = np.array( [ cTheta * sPhi, sTheta * sPhi, cPhi ] )
-				tC = np.zeros( ( 1, 3 ) ) 
-				tErr, tRSqr = get_error( data, tW, tC )
-
-		return x
-	def get_error( self, data, W, C ):
+				tErr, tRSqr, tC = errorFunc( data, tW )
+				
+				if tErr < minFitErr:
+					minFitErr = tErr
+					W = tW
+					C = tC
+					rSqr = tRSqr
+					
+		C = np.add( C, meanData )
+		return rSqr, C, W, minFitErr
+		
+	def errorFunc( self, data, W ):
 		dataDim = data.shape
 		
 		S = np.array( [ [ 0, -W[2], W[1] ], [ W[2], 0, -W[0] ], [ -W[1], W[0], 0 ] ] )		
@@ -80,7 +89,22 @@ needed by the ransac() function.
 		B = np.divide( B, dataDim[ 0 ] )
 		mSqrLength = mSqrLength / dataDim[ 0 ]
 		A_hat = np.inner( -S, np.inner( A, S ) )
-		PC = 
+		PC = np.divide( np.inner( A_hat, B ), np.trace( np.inner( A_hat, A ) ) )
+		err = 0
+		rSqr = 0
 		
-	 	
-		return err, rSqr
+		for i in xrange( dataDim[0] ):
+			term = sqrLength[ i ] - mSqrLength - 2 * np.dot( Y[ i ], PC )
+			err += term
+			diff = np.subtract( PC, Y[ i ] )
+			rSqr = np.dot( diff, diff )
+		
+		err = err / dataDim[ 0 ]
+		rSqr = rSqr / dataDim[ 0 ]		
+		return err, rSqr, PC
+	def get_model_err( self, testData, W, C, rSqr ):
+		dataDim = testData.shape		
+		P = np.subtract( np.identity( 3 ), np.outer( W, W ) )
+		
+		for i in xrange( dataDim[ 0 ] ):
+			Xi_C = np.subtract( testData[ i, : ], C )
