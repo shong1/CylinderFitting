@@ -9,7 +9,7 @@ import numpy as np
 import SimpleITK as sitk
 import vtk
 import pcl
-import ransac
+import ransac_cylinder as cylFit
 
 a = np.array( [ 1, 4, 5, 8 ], float )
 
@@ -38,7 +38,9 @@ for x in range( 0, ptMatSize[0] ):
 
 ptsMat = float32( ptsMat )
 
+model = cylFit.CylinderModel( False )
 
+C, W, rSqr, best_hypoErr = cylFit.ransac_cylinder( ptsMat, model, 10, 20, 500, 0.001,  )
 
 pts.from_array( ptsMat );
 
